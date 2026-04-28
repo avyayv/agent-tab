@@ -108,7 +108,7 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 	} else if len(opts.positionals) > 0 && opts.positionals[0] == "all" {
 		cfg.agents = configuredAgentNames(fc)
 		if len(opts.positionals) > 2 {
-			return cfg, errors.New("usage: agenttab all [session_name] [-- prompt]")
+			return cfg, errors.New("usage: agent-tab all [session_name] [-- prompt]")
 		}
 		if len(opts.positionals) == 2 {
 			cfg.session = opts.positionals[1]
@@ -131,7 +131,7 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 		cfg.agents = []string{"codex", "pi"}
 	}
 	if len(cfg.agents) < 2 || len(cfg.agents) > 3 {
-		return cfg, errors.New("pick two or three agents, or use: agenttab all")
+		return cfg, errors.New("pick two or three agents, or use: agent-tab all")
 	}
 	seen := map[string]bool{}
 	for _, agent := range cfg.agents {
@@ -159,7 +159,7 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 func sessionFromPositionals(pos []string) string { return "" }
 
 func usage() {
-	fmt.Println("Usage: agenttab [flags] [all|agent...] [session_name] [-- prompt]")
+	fmt.Println("Usage: agent-tab [flags] [all|agent...] [session_name] [-- prompt]")
 	fmt.Println("Flags:")
 	fmt.Println("  --config PATH")
 	fmt.Println("  --worktrees-dir PATH")
@@ -172,7 +172,7 @@ func usage() {
 	fmt.Println("  --dry-run")
 	fmt.Println("  --show-config")
 	fmt.Println("Examples:")
-	fmt.Println("  agenttab")
-	fmt.Println("  agenttab codex claude -- 'implement X'")
-	fmt.Println("  agenttab all -- 'implement X'")
+	fmt.Println("  agent-tab")
+	fmt.Println("  agent-tab codex claude -- 'implement X'")
+	fmt.Println("  agent-tab all -- 'implement X'")
 }

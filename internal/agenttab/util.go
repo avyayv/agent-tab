@@ -89,9 +89,9 @@ func homeDir() string {
 
 func defaultConfigPath() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "agenttab", "config.yaml")
+		return filepath.Join(xdg, "agent-tab", "config.yaml")
 	}
-	return filepath.Join(homeDir(), ".config", "agenttab", "config.yaml")
+	return filepath.Join(homeDir(), ".config", "agent-tab", "config.yaml")
 }
 
 func expandPath(path string) (string, error) {

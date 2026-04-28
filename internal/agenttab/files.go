@@ -8,7 +8,7 @@ import (
 )
 
 func makePatch(sourceDir string) (string, func(), error) {
-	dir, err := os.MkdirTemp("", "agenttab-")
+	dir, err := os.MkdirTemp("", "agent-tab-")
 	if err != nil {
 		return "", func() {}, err
 	}

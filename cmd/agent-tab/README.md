@@ -1,42 +1,17 @@
 # agent-tab
 
-`agent-tab` runs coding-agent A/B tests in isolated git worktrees.
-
-It creates one temporary worktree per contestant, opens the contestants in tmux, and starts a judge agent in the base worktree. The judge is told to wait until you say the contestants are done before comparing results.
-
-## Install
-
-```bash
-go install github.com/avyayv/agent-tab/cmd/agent-tab@latest
-```
-
-From a local checkout:
+`agent-tab` runs coding-agent A/B tests in isolated git worktrees. It creates one temporary worktree per contestant, opens the contestants in tmux, and starts a judge agent in the base worktree.
 
 ```bash
 go install ./cmd/agent-tab
-```
 
-## Usage
-
-Run from inside a git repository:
-
-```bash
 agent-tab                                      # codex + pi
 agent-tab codex claude -- "implement X"
 agent-tab all -- "implement X"                # first three configured agents
 agent-tab pi claude my-ab -- "implement X"    # custom tmux session name
 ```
 
-## What it does
-
-- Creates one fresh worktree per contestant under `~/.agent-tab/worktrees` by default.
-- Copies tracked local changes and untracked non-ignored files into each contestant worktree.
-- Symlinks `.env*` files and `node_modules` directories from the base worktree.
-- Opens contestant agents in a tmux tab/window.
-- Opens the judge agent in the base/current worktree.
-- Sends the task prompt to contestants immediately.
-- Sends the judge a coordinator prompt with all candidate worktree paths.
-- Never cleans up worktrees automatically.
+By default, worktrees are created under `~/.agent-tab/worktrees` and tmux attaches normally. iTerm control mode is opt-in.
 
 ## Configuration
 
@@ -52,7 +27,7 @@ judge:
 tmux:
   attach: true
   attach_mode: normal # normal | iterm-control-mode | none
-  layout: tiled
+  layout: tiled       # any tmux layout, e.g. tiled or even-horizontal
 
 agents:
   codex:
@@ -68,7 +43,7 @@ agents:
 
 Precedence is: flags, then environment variables, then config file, then defaults.
 
-Environment variables:
+Supported environment variables:
 
 ```bash
 AGENT_TAB_CONFIG
@@ -97,4 +72,4 @@ agent-tab [flags] [all|agent...] [session_name] [-- prompt]
 
 ## Safety
 
-`agent-tab` does not delete worktrees or branches. The judge prompt explicitly says to wait until you say contestants are done, ask before applying a winner, and ask separately before cleanup.
+`agent-tab` never cleans up worktrees automatically. The judge prompt explicitly tells the judge to wait until you say contestants are done, then ask before applying a winner, and ask separately before cleanup.

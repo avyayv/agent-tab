@@ -17,7 +17,7 @@ func Run(args []string) error {
 		return err
 	}
 	if opts.configPath == "" {
-		opts.configPath = os.Getenv("AGENTTAB_CONFIG")
+		opts.configPath = os.Getenv("AGENT_TAB_CONFIG")
 	}
 
 	fc := defaultConfig()
@@ -58,7 +58,7 @@ func Run(args []string) error {
 
 	sourceDir, err := output("git", "rev-parse", "--show-toplevel")
 	if err != nil {
-		return errors.New("agenttab must be run inside a git repository")
+		return errors.New("agent-tab must be run inside a git repository")
 	}
 	sourceDir = strings.TrimSpace(sourceDir)
 	repoName := filepath.Base(sourceDir)
@@ -82,8 +82,8 @@ func Run(args []string) error {
 		fmt.Printf("layout: %s\n", fc.Tmux.Layout)
 		fmt.Println("candidates:")
 		for _, agent := range cfg.agents {
-			path := filepath.Join(wtBase, fmt.Sprintf("%s-%s-agenttab-%s-%s", repoName, safeRef, agent, stamp))
-			branch := fmt.Sprintf("agenttab/%s/%s-%s", safeRef, agent, stamp)
+			path := filepath.Join(wtBase, fmt.Sprintf("%s-%s-agent-tab-%s-%s", repoName, safeRef, agent, stamp))
+			branch := fmt.Sprintf("agent-tab/%s/%s-%s", safeRef, agent, stamp)
 			fmt.Printf("  - %s: %s (%s) command=%s\n", agent, path, branch, commandLine(fc.Agents[agent]))
 		}
 		return nil
@@ -104,8 +104,8 @@ func Run(args []string) error {
 		cand := candidate{
 			agent:  agent,
 			cmd:    commandLine(fc.Agents[agent]),
-			path:   filepath.Join(wtBase, fmt.Sprintf("%s-%s-agenttab-%s-%s", repoName, safeRef, agent, stamp)),
-			branch: fmt.Sprintf("agenttab/%s/%s-%s", safeRef, agent, stamp),
+			path:   filepath.Join(wtBase, fmt.Sprintf("%s-%s-agent-tab-%s-%s", repoName, safeRef, agent, stamp)),
+			branch: fmt.Sprintf("agent-tab/%s/%s-%s", safeRef, agent, stamp),
 		}
 		fmt.Printf("  %s -> %s\n", cand.agent, cand.path)
 		if err := commandIn(sourceDir, "git", "worktree", "add", "-b", cand.branch, cand.path, "HEAD").Run(); err != nil {

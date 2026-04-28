@@ -50,7 +50,7 @@ func openInsideTmux(sourceDir string, cfg config, candidates []candidate, judgeP
 func openNewTmuxSession(sourceDir string, cfg config, candidates []candidate, judgePrompt string) error {
 	base := cfg.session
 	if base == "" {
-		base = "agenttab-ab-test"
+		base = "agent-tab-ab-test"
 	}
 	session := base
 	for i := 2; command("tmux", "has-session", "-t", session).Run() == nil; i++ {
@@ -130,6 +130,6 @@ func sendPrompt(target, prompt string) {
 	if target == "" || prompt == "" {
 		return
 	}
-	cmd := exec.Command("sh", "-c", "sleep 2; tmux send-keys -t \"$1\" -l \"$2\"; tmux send-keys -t \"$1\" Enter", "agenttab-send", target, prompt)
+	cmd := exec.Command("sh", "-c", "sleep 2; tmux send-keys -t \"$1\" -l \"$2\"; tmux send-keys -t \"$1\" Enter", "agent-tab-send", target, prompt)
 	_ = cmd.Start()
 }

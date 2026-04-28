@@ -13,7 +13,7 @@ func defaultConfig() FileConfig {
 		shell = "/bin/sh"
 	}
 	return FileConfig{
-		WorktreesDir: "~/.agenttab/worktrees",
+		WorktreesDir: "~/.agent-tab/worktrees",
 		Shell:        shell,
 		Judge:        JudgeConfig{Agent: "pi"},
 		Tmux: TmuxConfig{
@@ -91,16 +91,16 @@ func mergeConfig(dst *FileConfig, src FileConfig) {
 }
 
 func applyEnv(fc *FileConfig) {
-	if v := os.Getenv("AGENTTAB_WORKTREES_DIR"); v != "" {
+	if v := os.Getenv("AGENT_TAB_WORKTREES_DIR"); v != "" {
 		fc.WorktreesDir = v
 	}
-	if v := os.Getenv("AGENTTAB_ATTACH_MODE"); v != "" {
+	if v := os.Getenv("AGENT_TAB_ATTACH_MODE"); v != "" {
 		fc.Tmux.AttachMode = v
 	}
-	if v := os.Getenv("AGENTTAB_JUDGE"); v != "" {
+	if v := os.Getenv("AGENT_TAB_JUDGE"); v != "" {
 		fc.Judge.Agent = v
 	}
-	if v := os.Getenv("AGENTTAB_LAYOUT"); v != "" {
+	if v := os.Getenv("AGENT_TAB_LAYOUT"); v != "" {
 		fc.Tmux.Layout = v
 	}
 }
