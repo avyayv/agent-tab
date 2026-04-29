@@ -47,6 +47,12 @@ func parseCLI(args []string) (cliOptions, error) {
 				return opts, err
 			}
 			opts.worktreesDir = v
+		case "results-file":
+			v, err := takeValue()
+			if err != nil {
+				return opts, err
+			}
+			opts.resultsFile = v
 		case "judge":
 			v, err := takeValue()
 			if err != nil {
@@ -102,11 +108,17 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 	if opts.agentsFlag != "" {
 		for _, a := range strings.Split(opts.agentsFlag, ",") {
 			if strings.TrimSpace(a) != "" {
-				cfg.agents = append(cfg.agents, strings.TrimSpace(a))
+				spec, err := parseAgentSpec(fc, strings.TrimSpace(a))
+				if err != nil {
+					return cfg, err
+				}
+				cfg.agents = append(cfg.agents, spec)
 			}
 		}
 	} else if len(opts.positionals) > 0 && opts.positionals[0] == "all" {
-		cfg.agents = configuredAgentNames(fc)
+		for _, name := range configuredAgentNames(fc) {
+			cfg.agents = append(cfg.agents, agentSpec{Name: name, Label: name})
+		}
 		if len(opts.positionals) > 2 {
 			return cfg, errors.New("usage: agent-tab all [session_name] [-- prompt]")
 		}
@@ -115,11 +127,19 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 		}
 	} else {
 		for _, arg := range opts.positionals {
-			if _, ok := fc.Agents[arg]; ok {
+			if strings.Contains(arg, "/") && !isAgentSpec(fc, arg) {
+				_, err := parseAgentSpec(fc, arg)
+				return cfg, err
+			}
+			if isAgentSpec(fc, arg) {
 				if cfg.session != "" && cfg.session != opts.session {
 					return cfg, errors.New("agent names must come before session_name")
 				}
-				cfg.agents = append(cfg.agents, arg)
+				spec, err := parseAgentSpec(fc, arg)
+				if err != nil {
+					return cfg, err
+				}
+				cfg.agents = append(cfg.agents, spec)
 			} else if cfg.session == "" {
 				cfg.session = arg
 			} else if cfg.session != arg {
@@ -128,20 +148,23 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 		}
 	}
 	if len(cfg.agents) == 0 {
-		cfg.agents = []string{"codex", "pi"}
+		cfg.agents = []agentSpec{{Name: "codex", Label: "codex"}, {Name: "pi", Label: "pi"}}
 	}
 	if len(cfg.agents) < 2 || len(cfg.agents) > 3 {
 		return cfg, errors.New("pick two or three agents, or use: agent-tab all")
 	}
 	seen := map[string]bool{}
 	for _, agent := range cfg.agents {
-		if seen[agent] {
-			return cfg, errors.New("pick different agents")
+		if seen[agent.Label] {
+			return cfg, errors.New("pick different agent/model pairs")
 		}
-		seen[agent] = true
-		def, ok := fc.Agents[agent]
+		seen[agent.Label] = true
+		def, ok := fc.Agents[agent.Name]
 		if !ok || def.Command == "" {
-			return cfg, fmt.Errorf("agent %q is not configured", agent)
+			return cfg, fmt.Errorf("agent %q is not configured", agent.Name)
+		}
+		if agent.Model != "" && def.ModelArg == "" {
+			return cfg, fmt.Errorf("agent %q does not support model selection; set model_arg in config", agent.Name)
 		}
 	}
 	if _, ok := fc.Agents[fc.Judge.Agent]; !ok {
@@ -159,20 +182,24 @@ func buildRunConfig(fc FileConfig, opts cliOptions) (config, error) {
 func sessionFromPositionals(pos []string) string { return "" }
 
 func usage() {
-	fmt.Println("Usage: agent-tab [flags] [all|agent...] [session_name] [-- prompt]")
+	fmt.Println("Usage: agent-tab [flags] [all|agent[/model]...] [session_name] [-- prompt]")
 	fmt.Println("Flags:")
 	fmt.Println("  --config PATH")
 	fmt.Println("  --worktrees-dir PATH")
+	fmt.Println("  --results-file PATH")
 	fmt.Println("  --judge AGENT")
 	fmt.Println("  --session NAME")
-	fmt.Println("  --agents a,b[,c]")
+	fmt.Println("  --agents a,b[,c]        agents may include /model, e.g. claude/opus")
 	fmt.Println("  --layout tiled|even-horizontal|even-vertical")
 	fmt.Println("  --attach-mode normal|iterm-control-mode|none")
 	fmt.Println("  --attach / --no-attach")
 	fmt.Println("  --dry-run")
 	fmt.Println("  --show-config")
+	fmt.Println("Commands:")
+	fmt.Println("  record --task-type TYPE --order a,b[,c] [--notes TEXT]")
+	fmt.Println("  stats [--task-type TYPE]")
 	fmt.Println("Examples:")
 	fmt.Println("  agent-tab")
-	fmt.Println("  agent-tab codex claude -- 'implement X'")
+	fmt.Println("  agent-tab codex/gpt-5.5 claude/claude-opus-4.7 -- 'implement X'")
 	fmt.Println("  agent-tab all -- 'implement X'")
 }

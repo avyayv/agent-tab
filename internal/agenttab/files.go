@@ -13,12 +13,12 @@ func makePatch(sourceDir string) (string, func(), error) {
 		return "", func() {}, err
 	}
 	patch := filepath.Join(dir, "tracked.patch")
-	out, err := commandIn(sourceDir, "git", "diff", "--binary", "HEAD").Output()
+	out, err := outputIn(sourceDir, "git", "diff", "--binary", "HEAD")
 	if err != nil {
 		os.RemoveAll(dir)
 		return "", func() {}, err
 	}
-	if err := os.WriteFile(patch, out, 0o644); err != nil {
+	if err := os.WriteFile(patch, []byte(out), 0o644); err != nil {
 		os.RemoveAll(dir)
 		return "", func() {}, err
 	}

@@ -12,6 +12,15 @@ import (
 )
 
 func Run(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "record":
+			return recordCommand(args[1:])
+		case "stats":
+			return statsCommand(args[1:])
+		}
+	}
+
 	opts, err := parseCLI(args)
 	if err != nil {
 		return err
@@ -41,7 +50,7 @@ func Run(args []string) error {
 
 	commands := []string{"git", "tmux"}
 	for _, agent := range cfg.agents {
-		def := fc.Agents[agent]
+		def := fc.Agents[agent.Name]
 		commands = append(commands, def.Command)
 	}
 	judgeDef, ok := fc.Agents[fc.Judge.Agent]
@@ -76,15 +85,18 @@ func Run(args []string) error {
 		return err
 	}
 	if cfg.dryRun {
+		resultsFile, _ := expandPath(fc.ResultsFile)
 		fmt.Printf("worktrees_dir: %s\n", wtBase)
+		fmt.Printf("results_file: %s\n", resultsFile)
 		fmt.Printf("judge: %s (%s)\n", fc.Judge.Agent, commandLine(judgeDef))
 		fmt.Printf("attach_mode: %s\n", fc.Tmux.AttachMode)
 		fmt.Printf("layout: %s\n", fc.Tmux.Layout)
 		fmt.Println("candidates:")
-		for _, agent := range cfg.agents {
-			path := filepath.Join(wtBase, fmt.Sprintf("%s-%s-agent-tab-%s-%s", repoName, safeRef, agent, stamp))
-			branch := fmt.Sprintf("agent-tab/%s/%s-%s", safeRef, agent, stamp)
-			fmt.Printf("  - %s: %s (%s) command=%s\n", agent, path, branch, commandLine(fc.Agents[agent]))
+		for i, agent := range cfg.agents {
+			codename := codenameForIndex(i)
+			path := filepath.Join(wtBase, fmt.Sprintf("%s-%s-agent-tab-%s-%s", repoName, safeRef, codename, stamp))
+			branch := fmt.Sprintf("agent-tab/%s/%s-%s", safeRef, codename, stamp)
+			fmt.Printf("  - %s (%s): %s (%s) command=%s\n", codename, agent.Label, path, branch, commandLineForSpec(fc.Agents[agent.Name], agent))
 		}
 		return nil
 	}
@@ -99,15 +111,19 @@ func Run(args []string) error {
 	defer cleanupPatch()
 
 	candidates := make([]candidate, 0, len(cfg.agents))
-	fmt.Println("Creating worktrees:")
-	for _, agent := range cfg.agents {
+	fmt.Println("Creating anonymized worktrees:")
+	for i, agent := range cfg.agents {
+		codename := codenameForIndex(i)
 		cand := candidate{
-			agent:  agent,
-			cmd:    commandLine(fc.Agents[agent]),
-			path:   filepath.Join(wtBase, fmt.Sprintf("%s-%s-agent-tab-%s-%s", repoName, safeRef, agent, stamp)),
-			branch: fmt.Sprintf("agent-tab/%s/%s-%s", safeRef, agent, stamp),
+			agent:    agent.Name,
+			model:    agent.Model,
+			label:    agent.Label,
+			codename: codename,
+			cmd:      commandLineForSpec(fc.Agents[agent.Name], agent),
+			path:     filepath.Join(wtBase, fmt.Sprintf("%s-%s-agent-tab-%s-%s", repoName, safeRef, codename, stamp)),
+			branch:   fmt.Sprintf("agent-tab/%s/%s-%s", safeRef, codename, stamp),
 		}
-		fmt.Printf("  %s -> %s\n", cand.agent, cand.path)
+		fmt.Printf("  %s -> %s (%s)\n", cand.codename, cand.path, cand.label)
 		if err := commandIn(sourceDir, "git", "worktree", "add", "-b", cand.branch, cand.path, "HEAD").Run(); err != nil {
 			return fmt.Errorf("failed to create %s; any already-created worktrees were left in place for manual review: %w", cand.path, err)
 		}

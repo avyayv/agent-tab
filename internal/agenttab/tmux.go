@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func openInsideTmux(sourceDir string, cfg config, candidates []candidate, judgePrompt string) error {
@@ -42,7 +43,7 @@ func openInsideTmux(sourceDir string, cfg config, candidates []candidate, judgeP
 		sendPrompt(cand.pane, cfg.prompt)
 	}
 	sendPrompt(currentPane, judgePrompt)
-	fmt.Printf("Opened %s contestants. Starting %s judge here.\n", strings.Join(cfg.agents, ", "), cfg.file.Judge.Agent)
+	fmt.Printf("Opened %s contestants. Starting %s judge here.\n", strings.Join(agentLabels(cfg.agents), ", "), cfg.file.Judge.Agent)
 	judgeCmd := commandLine(cfg.file.Agents[cfg.file.Judge.Agent])
 	return syscall.Exec(findExecutable(cfg.file.Shell), []string{cfg.file.Shell, "-lc", judgeCmd}, os.Environ())
 }
@@ -102,34 +103,84 @@ func openNewTmuxSession(sourceDir string, cfg config, candidates []candidate, ju
 }
 
 func buildJudgePrompt(prompt string, candidates []candidate) string {
-	if prompt == "" {
-		return ""
-	}
 	var b strings.Builder
 	b.WriteString("You are the judge/coordinator for a coding-agent A/B test.\n\n")
-	b.WriteString("Original task:\n")
-	b.WriteString(prompt)
-	b.WriteString("\n\nContestants:\n")
+	if prompt != "" {
+		b.WriteString("Original task:\n")
+		b.WriteString(prompt)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("Contestants:\n")
 	for _, cand := range candidates {
-		b.WriteString(fmt.Sprintf("- %s in %s (branch %s)\n", cand.agent, cand.path, cand.branch))
+		b.WriteString(fmt.Sprintf("- %s in %s (branch %s)\n", cand.codename, cand.path, cand.branch))
 	}
 	b.WriteString("\nDo not judge yet. Wait until I explicitly tell you the contestants are done and ask you to judge.\n\n")
-	b.WriteString("When I ask you to judge: inspect the candidate worktrees, compare their diffs and checks, pick the best one first, then ask before applying it to this base worktree. NEVER delete or clean up any worktree or branch unless I explicitly approve cleanup after your verdict.")
+	b.WriteString("When I ask you to judge: inspect the candidate worktrees, compare their diffs and checks, pick the best codename first, then ask before applying it to this base worktree. After you give the final ranking, record the result with: agent-tab record --task-type <type> --order <winner-codename,second-codename,third-codename> --notes '<short reason>'. NEVER delete or clean up any worktree or branch unless I explicitly approve cleanup after your verdict.")
 	return b.String()
 }
 
 func commandLine(def AgentDef) string {
+	return commandLineForSpec(def, agentSpec{})
+}
+
+func commandLineForSpec(def AgentDef, spec agentSpec) string {
 	parts := []string{shellQuote(def.Command)}
 	for _, arg := range def.Args {
 		parts = append(parts, shellQuote(arg))
 	}
+	if spec.Model != "" {
+		parts = append(parts, shellQuote(def.ModelArg), shellQuote(spec.Model))
+	}
 	return strings.Join(parts, " ")
+}
+
+func agentLabels(agents []agentSpec) []string {
+	labels := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		labels = append(labels, agent.Label)
+	}
+	return labels
 }
 
 func sendPrompt(target, prompt string) {
 	if target == "" || prompt == "" {
 		return
 	}
-	cmd := exec.Command("sh", "-c", "sleep 2; tmux send-keys -t \"$1\" -l \"$2\"; tmux send-keys -t \"$1\" Enter", "agent-tab-send", target, prompt)
-	_ = cmd.Start()
+
+	promptFile, err := os.CreateTemp("", "agent-tab-prompt-*.txt")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "agent-tab: failed to create prompt file for %s: %v\n", target, err)
+		return
+	}
+	if _, err := promptFile.WriteString(prompt); err != nil {
+		fmt.Fprintf(os.Stderr, "agent-tab: failed to write prompt file for %s: %v\n", target, err)
+		_ = promptFile.Close()
+		_ = os.Remove(promptFile.Name())
+		return
+	}
+	_ = promptFile.Close()
+
+	// This must be an external background process, not a goroutine. In the
+	// inside-tmux path agent-tab execs into the judge agent, which kills goroutines
+	// before their sleep finishes. Use tmux buffers instead of send-keys -l so
+	// quotes/newlines in prompts cannot confuse a shell or tmux argument parser.
+	delay := time.Duration(len([]rune(prompt))/200+1) * 500 * time.Millisecond
+	if delay > 3*time.Second {
+		delay = 3 * time.Second
+	}
+	bufferName := "agent-tab-" + sanitize(strings.TrimPrefix(target, "%"))
+	script := `
+		sleep 3
+		tmux load-buffer -b "$3" "$2" || exit 1
+		tmux paste-buffer -t "$1" -b "$3" || exit 1
+		sleep "$4"
+		tmux send-keys -t "$1" C-m || exit 1
+		tmux delete-buffer -b "$3" >/dev/null 2>&1 || true
+		rm -f "$2"
+	`
+	cmd := exec.Command("sh", "-c", script, "agent-tab-send", target, promptFile.Name(), bufferName, fmt.Sprintf("%.3f", delay.Seconds()))
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "agent-tab: failed to schedule prompt for %s: %v\n", target, err)
+		_ = os.Remove(promptFile.Name())
+	}
 }

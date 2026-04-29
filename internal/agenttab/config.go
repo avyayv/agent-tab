@@ -14,6 +14,7 @@ func defaultConfig() FileConfig {
 	}
 	return FileConfig{
 		WorktreesDir: "~/.agent-tab/worktrees",
+		ResultsFile:  "~/.agent-tab/results.json",
 		Shell:        shell,
 		Judge:        JudgeConfig{Agent: "pi"},
 		Tmux: TmuxConfig{
@@ -22,9 +23,9 @@ func defaultConfig() FileConfig {
 			Layout:     "tiled",
 		},
 		Agents: map[string]AgentDef{
-			"codex":  {Command: "codex", Args: []string{"--yolo"}},
-			"claude": {Command: "claude", Args: []string{"--yolo"}},
-			"pi":     {Command: "pi"},
+			"codex":  {Command: "codex", Args: []string{"--yolo"}, ModelArg: "--model"},
+			"claude": {Command: "claude", Args: []string{"--dangerously-skip-permissions"}, ModelArg: "--model"},
+			"pi":     {Command: "pi", ModelArg: "--model"},
 		},
 	}
 }
@@ -65,6 +66,9 @@ func mergeConfig(dst *FileConfig, src FileConfig) {
 	if src.WorktreesDir != "" {
 		dst.WorktreesDir = src.WorktreesDir
 	}
+	if src.ResultsFile != "" {
+		dst.ResultsFile = src.ResultsFile
+	}
 	if src.Shell != "" {
 		dst.Shell = src.Shell
 	}
@@ -94,6 +98,9 @@ func applyEnv(fc *FileConfig) {
 	if v := os.Getenv("AGENT_TAB_WORKTREES_DIR"); v != "" {
 		fc.WorktreesDir = v
 	}
+	if v := os.Getenv("AGENT_TAB_RESULTS_FILE"); v != "" {
+		fc.ResultsFile = v
+	}
 	if v := os.Getenv("AGENT_TAB_ATTACH_MODE"); v != "" {
 		fc.Tmux.AttachMode = v
 	}
@@ -108,6 +115,9 @@ func applyEnv(fc *FileConfig) {
 func applyFlags(fc *FileConfig, opts cliOptions) {
 	if opts.worktreesDir != "" {
 		fc.WorktreesDir = opts.worktreesDir
+	}
+	if opts.resultsFile != "" {
+		fc.ResultsFile = opts.resultsFile
 	}
 	if opts.judge != "" {
 		fc.Judge.Agent = opts.judge

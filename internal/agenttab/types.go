@@ -1,12 +1,14 @@
 package agenttab
 
 type AgentDef struct {
-	Command string   `yaml:"command"`
-	Args    []string `yaml:"args"`
+	Command  string   `yaml:"command"`
+	Args     []string `yaml:"args"`
+	ModelArg string   `yaml:"model_arg"`
 }
 
 type FileConfig struct {
 	WorktreesDir string              `yaml:"worktrees_dir"`
+	ResultsFile  string              `yaml:"results_file"`
 	Shell        string              `yaml:"shell"`
 	Judge        JudgeConfig         `yaml:"judge"`
 	Tmux         TmuxConfig          `yaml:"tmux"`
@@ -26,6 +28,7 @@ type TmuxConfig struct {
 type cliOptions struct {
 	configPath   string
 	worktreesDir string
+	resultsFile  string
 	judge        string
 	session      string
 	layout       string
@@ -41,16 +44,25 @@ type cliOptions struct {
 
 type config struct {
 	file    FileConfig
-	agents  []string
+	agents  []agentSpec
 	session string
 	prompt  string
 	dryRun  bool
 }
 
+type agentSpec struct {
+	Name  string
+	Model string
+	Label string
+}
+
 type candidate struct {
-	agent  string
-	cmd    string
-	path   string
-	branch string
-	pane   string
+	agent    string
+	model    string
+	label    string
+	codename string
+	cmd      string
+	path     string
+	branch   string
+	pane     string
 }
